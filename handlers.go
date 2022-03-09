@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -116,16 +118,22 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := r.URL.Query().Get("id")
-	fmt.Println(id) // TODO delete
+	id, _ := strconv.Atoi(r.URL.Query().Get("id")) // TODO обработать ошибку
+	log.Println(id)                                // TODO delete
+
+	user, err := getUser(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		return
+	}
 
 	currency := strings.ToUpper(r.URL.Query().Get("currency"))
 	if currency == "" || currency == "RUB" {
 		currency = "RUB"
-		balance = user1.Balance
+		balance = user.Balance
 	} else {
 		var err error
-		balance, err = currencyConversion(currency, user1.Balance)
+		balance, err = currencyConversion(currency, user.Balance)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
 			return
@@ -134,7 +142,7 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO получить пользователя по id из БД
 	// TODO проверка на существование пользователя
-	w.Write([]byte(fmt.Sprintf("{\"id\": %v, \"currency\": %v, \"balance\": %v}", user1.Id, currency, balance)))
+	w.Write([]byte(fmt.Sprintf("{\"id\": %v, \"currency\": %v, \"balance\": %v}", user.Id, currency, balance)))
 }
 
 func historyHandler(w http.ResponseWriter, r *http.Request) {
