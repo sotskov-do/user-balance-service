@@ -10,11 +10,8 @@ import (
 	"strings"
 )
 
-var user1 User = User{Id: 1, Balance: 200}
-var user2 User = User{Id: 2, Balance: 100}
-
 func operationHandler(w http.ResponseWriter, r *http.Request) {
-	// w.Header().Set("Content-type", "applciation/json")
+	w.Header().Set("Content-type", "applciation/json")
 	if r.Method != "POST" {
 		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
 		return
@@ -40,28 +37,41 @@ func operationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO получить пользователя по id из БД
-	// TODO создать пользователя при зачислении, если не найден
-	fmt.Println(user1, params)
-
-	if params.Type == "credit" {
-		user1.Balance += params.Amount
-	} else {
-		user1.Balance -= params.Amount
+	user, err := getUser(params.Id)
+	if err != nil && params.Type == "credit" {
+		user, err = createUser(params.Id, 0)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+			return
+		}
 	}
 
-	if user1.Balance < 0 {
+	log.Println(user, params)
+
+	if params.Type == "credit" {
+		user.Balance += params.Amount
+	} else {
+		user.Balance -= params.Amount
+	}
+
+	if user.Balance < 0 {
 		http.Error(w, "{\"error\": \"not enough money\"}", http.StatusBadRequest)
 		return
 	}
 
-	// TODO записать результат в базу
+	err = updateUserBalance(user.Id, user.Balance)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		return
+	}
+
 	// TODO записать операцию в историю
 
-	w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"balance\": %v}", user1.Balance)))
+	w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"balance\": %v}", user.Balance)))
 }
 
 func transferHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-type", "applciation/json")
 	if r.Method != "POST" {
 		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
 		return
@@ -87,27 +97,48 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO получить пользователей по id из БД
-	fmt.Println(user1, user2, params)
+	user_sender, err := getUser(params.SenderId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		return
+	}
+	user_reciever, err := getUser(params.RecieverId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		return
+	}
 
-	user2.Balance += params.Amount
-	user1.Balance -= params.Amount
+	log.Println(user_sender, user_reciever, params)
 
-	if user1.Balance < 0 {
+	user_sender.Balance -= params.Amount
+	user_reciever.Balance += params.Amount
+
+	if user_sender.Balance < 0 {
 		http.Error(w, "{\"error\": \"not enough money\"}", http.StatusBadRequest)
 		return
 	}
 
-	// TODO записать результат в базу
+	err = updateUserBalance(user_sender.Id, user_sender.Balance)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		return
+	}
+	err = updateUserBalance(user_reciever.Id, user_reciever.Balance)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		return
+	}
+
 	// TODO записать операцию в историю
 
 	fmt.Fprintln(w, "transferHandler")
-	w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"sender_balance\": %v, \"reciever_balance\": %v}", user1.Balance, user2.Balance)))
+	w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"sender_balance\": %v, \"reciever_balance\": %v}", user_sender.Balance, user_reciever.Balance)))
 }
 
 func balanceHandler(w http.ResponseWriter, r *http.Request) {
 	var balance float64
 
+	w.Header().Set("Content-type", "applciation/json")
 	if r.Method != "GET" {
 		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
 		return
@@ -140,12 +171,11 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO получить пользователя по id из БД
-	// TODO проверка на существование пользователя
 	w.Write([]byte(fmt.Sprintf("{\"id\": %v, \"currency\": %v, \"balance\": %v}", user.Id, currency, balance)))
 }
 
 func historyHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-type", "applciation/json")
 	if r.Method != "GET" {
 		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
 		return
