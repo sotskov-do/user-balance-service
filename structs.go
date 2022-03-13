@@ -56,3 +56,11 @@ type User struct {
 	Id      int
 	Balance float64
 }
+
+type History struct {
+	UserId   int     `json:"user_id"`
+	Type     string  `json:"type"`
+	Amount   float64 `json:"amount"`
+	Datetime string  `json:"datetime"`
+	Idx      int     `json:"idx"`
+}

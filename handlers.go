@@ -4,34 +4,37 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 func operationHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "applciation/json")
+	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "POST" {
-		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("{\"error\": \"wrong request method\"}"))
 		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		panic(err) // TODO обработать
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
 	}
 	defer r.Body.Close()
 
 	params := &Operation{}
 	err = json.Unmarshal(body, params)
 	if err != nil {
-		http.Error(w, "{\"error\": \"provide correct id, type and amount in request body\"}", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"provide correct id, type and amount in request body\"}"))
 		return
 	}
 
 	if validErrs := params.validate(); len(validErrs) > 0 {
-		errs := map[string]interface{}{"error": validErrs}
+		errs := map[string]interface{}{"errors": validErrs}
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(errs)
 		return
@@ -41,12 +44,11 @@ func operationHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil && params.Type == "credit" {
 		user, err = createUser(params.Id, 0)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 			return
 		}
 	}
-
-	log.Println(user, params)
 
 	if params.Type == "credit" {
 		user.Balance += params.Amount
@@ -55,43 +57,54 @@ func operationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user.Balance < 0 {
-		http.Error(w, "{\"error\": \"not enough money\"}", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"not enough money\"}"))
 		return
 	}
 
 	err = updateUserBalance(user.Id, user.Balance)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 		return
 	}
 
-	// TODO записать операцию в историю
+	err = updateHistory(user.Id, params.Type, params.Amount)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
+	}
 
 	w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"balance\": %v}", user.Balance)))
 }
 
 func transferHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "applciation/json")
+	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "POST" {
-		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("{\"error\": \"wrong request method\"}"))
 		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		panic(err) // TODO обработать
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
 	}
 	defer r.Body.Close()
 
 	params := &Transfer{}
 	err = json.Unmarshal(body, params)
 	if err != nil {
-		http.Error(w, "{\"error\": \"provide correct sender_id, reciever_id and amount in request body\"}", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"provide correct sender_id, reciever_id and amount in request body\"}"))
 		return
 	}
 
 	if validErrs := params.validate(); len(validErrs) > 0 {
-		errs := map[string]interface{}{"error": validErrs}
+		errs := map[string]interface{}{"errors": validErrs}
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(errs)
 		return
@@ -99,62 +112,81 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 
 	user_sender, err := getUser(params.SenderId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 		return
 	}
 	user_reciever, err := getUser(params.RecieverId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 		return
 	}
-
-	log.Println(user_sender, user_reciever, params)
 
 	user_sender.Balance -= params.Amount
 	user_reciever.Balance += params.Amount
 
 	if user_sender.Balance < 0 {
-		http.Error(w, "{\"error\": \"not enough money\"}", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"not enough money\"}"))
 		return
 	}
 
 	err = updateUserBalance(user_sender.Id, user_sender.Balance)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 		return
 	}
 	err = updateUserBalance(user_reciever.Id, user_reciever.Balance)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 		return
 	}
 
-	// TODO записать операцию в историю
+	err = updateHistory(user_sender.Id, "transfer_send", params.Amount)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
+	}
+	err = updateHistory(user_reciever.Id, "transfer_recieve", params.Amount)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
+	}
 
-	fmt.Fprintln(w, "transferHandler")
 	w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"sender_balance\": %v, \"reciever_balance\": %v}", user_sender.Balance, user_reciever.Balance)))
 }
 
 func balanceHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	var balance float64
 
-	w.Header().Set("Content-type", "applciation/json")
 	if r.Method != "GET" {
-		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("{\"error\": \"wrong request method\"}"))
 		return
 	}
 
 	if r.URL.Query().Get("id") == "" {
-		http.Error(w, "{\"error\": \"add user id to query string\"}", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"add user id to query string\"}"))
 		return
 	}
 
-	id, _ := strconv.Atoi(r.URL.Query().Get("id")) // TODO обработать ошибку
-	log.Println(id)                                // TODO delete
-
+	id, err := strconv.Atoi(r.URL.Query().Get("id"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
+	}
 	user, err := getUser(id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 		return
 	}
 
@@ -166,7 +198,8 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 		var err error
 		balance, err = currencyConversion(currency, user.Balance)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("{\"error\": \"%v\"}", err), http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 			return
 		}
 	}
@@ -175,26 +208,80 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func historyHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "applciation/json")
+	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "GET" {
-		http.Error(w, "{\"error\": \"wrong request method\"}", http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("{\"error\": \"wrong request method\"}"))
 		return
 	}
 
 	if r.URL.Query().Get("id") == "" {
-		http.Error(w, "{\"error\": \"add user id to query string\"}", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"add user id to query string\"}"))
 		return
 	}
 
-	id := r.URL.Query().Get("id")
-	fmt.Println(id)
+	id, err := strconv.Atoi(r.URL.Query().Get("id"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
+	}
+	_, err = getUser(id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
+	}
 
-	// TODO получить пользователя по id из БД
-	// TODO проверка на существование пользователя
-	// TODO вывести операции (таблица вида - user_id, тип операции (debit, credit, transfer), сумма, дата операции)
+	var page int
+	if r.URL.Query().Get("page") == "" {
+		page = 1
+	} else {
+		page, err = strconv.Atoi(r.URL.Query().Get("page"))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+			return
+		}
+	}
 
-	fmt.Fprintln(w, "historyHandler")
-	fmt.Fprintln(w, r.URL)
-	fmt.Fprintln(w, r.URL.Query())
-	w.Write([]byte("!!!"))
+	var sorted string
+	if r.URL.Query().Get("sorted") == "" {
+		sorted = "datetime"
+	} else {
+		sorted = r.URL.Query().Get("sorted")
+		if sorted != "amount" && sorted != "datetime" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{\"error\": \"sorted must be amount or datetime\"}"))
+			return
+		}
+	}
+
+	var order string
+	if r.URL.Query().Get("order") == "" {
+		order = "ASC"
+	} else {
+		order = strings.ToUpper(r.URL.Query().Get("order"))
+		if order != "ASC" && order != "DESC" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{\"error\": \"order must be asc or desc\"}"))
+			return
+		}
+	}
+
+	historyPage, err := getHistory(id, page, sorted, order)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
+	}
+
+	if len(historyPage) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("{\"error\": \"nothing found\"}"))
+		return
+	} else {
+		json.NewEncoder(w).Encode(historyPage)
+	}
 }
