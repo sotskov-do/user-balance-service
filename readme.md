@@ -4,6 +4,9 @@
 
 ~~~
 //TODO инструкция по запуску
+
+psql postgres
+\i ./db.sql
 ~~~
 Запросы следует отправлять на http://127.0.0.1:8080/
 
@@ -16,7 +19,7 @@
 
 ***POST operation/***
 
-Производит операцию начисления или списание денежных средств на(с) счет(а) пользователя. 
+Производит операцию начисления или списание денежных средств на(с) счет(а) пользователя. Если типом операции является 'credit', то при отсутствии пользователя с указанным в теле запроса id, он будет создан.
 
 ### Параметры тела запроса:
 
@@ -85,7 +88,6 @@ currency|string|Трехбуквенный код валюты (по умолч�
 ### Перечень доступных валют:
 AED, AFN, ALL, AMD, ANG, AOA, ARS, AUD, AWG, AZN, BAM, BBD, BDT, BGN, BHD, BIF, BMD, BND, BOB, BRL, BSD, BTC, BTN, BWP, BYN, BYR, BZD, CAD, CDF, CHF, CLF, CLP, CNY, COP, CRC, CUC, CUP, CVE, CZK, DJF, DKK, DOP, DZD, EGP, ERN, ETB, EUR, FJD, FKP, GBP, GEL, GGP, GHS, GIP, GMD, GNF, GTQ, GYD, HKD, HNL, HRK, HTG, HUF, IDR, ILS, IMP, INR, IQD, IRR, ISK, JEP, JMD, JOD, JPY, KES, KGS, KHR, KMF, KPW, KRW, KWD, KYD, KZT, LAK, LBP, LKR, LRD, LSL, LTL, LVL, LYD, MAD, MDL, MGA, MKD, MMK, MNT, MOP, MRO, MUR, MVR, MWK, MXN, MYR, MZN, NAD, NGN, NIO, NOK, NPR, NZD, OMR, PAB, PEN, PGK, PHP, PKR, PLN, PYG, QAR, RON, RSD, RWF, SAR, SBD, SCR, SDG, SEK, SGD, SHP, SLL, SOS, SRD, STD, SVC, SYP, SZL, THB, TJS, TMT, TND, TOP, TRY, TTD, TWD, TZS, UAH, UGX, USD, UYU, UZS, VEF, VND, VUV, WST, XAF, XAG, XAU, XCD, XDR, XOF, XPF, YER, ZAR, ZMK, ZMW, ZWL
 
-
 ### Схема ответа:
 
 Код статуса|Ответ
@@ -125,5 +127,3 @@ order|string|Порядок сортировки (по умолчанию ASC)<b
 400 (при некорректном указании id пользователя|{"error": "no user with such id"}
 404 (при отсутствии истории операций)|{"error": ""nothing found""}
 405 (при некорректном методе запроса)|{"error": "wrong request method"}
-
-//TODO sql-скрипт создания необходимых таблиц
