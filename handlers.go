@@ -48,6 +48,10 @@ func operationHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
 			return
 		}
+	} else if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+		return
 	}
 
 	if params.Type == "credit" {
@@ -107,6 +111,12 @@ func transferHandler(w http.ResponseWriter, r *http.Request) {
 		errs := map[string]interface{}{"errors": validErrs}
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(errs)
+		return
+	}
+
+	if params.SenderId == params.RecieverId {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"sender and receiver are the same\"}"))
 		return
 	}
 
@@ -204,7 +214,7 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Write([]byte(fmt.Sprintf("{\"id\": %v, \"currency\": %v, \"balance\": %v}", user.Id, currency, balance)))
+	w.Write([]byte(fmt.Sprintf("{\"id\": %v, \"currency\": \"%v\", \"balance\": %v}", user.Id, currency, balance)))
 }
 
 func historyHandler(w http.ResponseWriter, r *http.Request) {

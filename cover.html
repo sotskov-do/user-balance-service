@@ -1,0 +1,651 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>userbalance: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">userbalance/handlers.go (80.3%)</option>
+				
+				<option value="file1">userbalance/main.go (0.0%)</option>
+				
+				<option value="file2">userbalance/structs.go (100.0%)</option>
+				
+				<option value="file3">userbalance/utils.go (83.1%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "encoding/json"
+        "fmt"
+        "io/ioutil"
+        "net/http"
+        "strconv"
+        "strings"
+)
+
+func operationHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        w.Header().Set("Content-Type", "application/json")
+        if r.Method != "POST" </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusMethodNotAllowed)
+                w.Write([]byte("{\"error\": \"wrong request method\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">body, err := ioutil.ReadAll(r.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+        <span class="cov8" title="1">defer r.Body.Close()
+
+        params := &amp;Operation{}
+        err = json.Unmarshal(body, params)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte("{\"error\": \"provide correct id, type and amount in request body\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">if validErrs := params.validate(); len(validErrs) &gt; 0 </span><span class="cov8" title="1">{
+                errs := map[string]interface{}{"errors": validErrs}
+                w.WriteHeader(http.StatusBadRequest)
+                json.NewEncoder(w).Encode(errs)
+                return
+        }</span>
+
+        <span class="cov8" title="1">user, err := getUser(params.Id)
+        if err != nil &amp;&amp; params.Type == "credit" </span><span class="cov8" title="1">{
+                user, err = createUser(params.Id, 0)
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                        return
+                }</span>
+        } else<span class="cov8" title="1"> if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">if params.Type == "credit" </span><span class="cov8" title="1">{
+                user.Balance += params.Amount
+        }</span> else<span class="cov8" title="1"> {
+                user.Balance -= params.Amount
+        }</span>
+
+        <span class="cov8" title="1">if user.Balance &lt; 0 </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte("{\"error\": \"not enough money\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">err = updateUserBalance(user.Id, user.Balance)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">err = updateHistory(user.Id, params.Type, params.Amount)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"balance\": %v}", user.Balance)))</span>
+}
+
+func transferHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        w.Header().Set("Content-Type", "application/json")
+        if r.Method != "POST" </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusMethodNotAllowed)
+                w.Write([]byte("{\"error\": \"wrong request method\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">body, err := ioutil.ReadAll(r.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+        <span class="cov8" title="1">defer r.Body.Close()
+
+        params := &amp;Transfer{}
+        err = json.Unmarshal(body, params)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte("{\"error\": \"provide correct sender_id, reciever_id and amount in request body\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">if validErrs := params.validate(); len(validErrs) &gt; 0 </span><span class="cov8" title="1">{
+                errs := map[string]interface{}{"errors": validErrs}
+                w.WriteHeader(http.StatusBadRequest)
+                json.NewEncoder(w).Encode(errs)
+                return
+        }</span>
+
+        <span class="cov8" title="1">if params.SenderId == params.RecieverId </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte("{\"error\": \"sender and receiver are the same\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">user_sender, err := getUser(params.SenderId)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+        <span class="cov8" title="1">user_reciever, err := getUser(params.RecieverId)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">user_sender.Balance -= params.Amount
+        user_reciever.Balance += params.Amount
+
+        if user_sender.Balance &lt; 0 </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte("{\"error\": \"not enough money\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">err = updateUserBalance(user_sender.Id, user_sender.Balance)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+        <span class="cov8" title="1">err = updateUserBalance(user_reciever.Id, user_reciever.Balance)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">err = updateHistory(user_sender.Id, "transfer_send", params.Amount)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+        <span class="cov8" title="1">err = updateHistory(user_reciever.Id, "transfer_recieve", params.Amount)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">w.Write([]byte(fmt.Sprintf("{\"result\": \"success\", \"sender_balance\": %v, \"reciever_balance\": %v}", user_sender.Balance, user_reciever.Balance)))</span>
+}
+
+func balanceHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        w.Header().Set("Content-Type", "application/json")
+        var balance float64
+
+        if r.Method != "GET" </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusMethodNotAllowed)
+                w.Write([]byte("{\"error\": \"wrong request method\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">if r.URL.Query().Get("id") == "" </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte("{\"error\": \"add user id to query string\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">id, err := strconv.Atoi(r.URL.Query().Get("id"))
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+        <span class="cov8" title="1">user, err := getUser(id)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">currency := strings.ToUpper(r.URL.Query().Get("currency"))
+        if currency == "" || currency == "RUB" </span><span class="cov8" title="1">{
+                currency = "RUB"
+                balance = user.Balance
+        }</span> else<span class="cov8" title="1"> {
+                var err error
+                balance, err = currencyConversion(currency, user.Balance)
+                if err != nil </span><span class="cov8" title="1">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                        return
+                }</span>
+        }
+
+        <span class="cov8" title="1">w.Write([]byte(fmt.Sprintf("{\"id\": %v, \"currency\": \"%v\", \"balance\": %v}", user.Id, currency, balance)))</span>
+}
+
+func historyHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        w.Header().Set("Content-Type", "application/json")
+        if r.Method != "GET" </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusMethodNotAllowed)
+                w.Write([]byte("{\"error\": \"wrong request method\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">if r.URL.Query().Get("id") == "" </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte("{\"error\": \"add user id to query string\"}"))
+                return
+        }</span>
+
+        <span class="cov8" title="1">id, err := strconv.Atoi(r.URL.Query().Get("id"))
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+        <span class="cov8" title="1">_, err = getUser(id)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">var page int
+        if r.URL.Query().Get("page") == "" </span><span class="cov8" title="1">{
+                page = 1
+        }</span> else<span class="cov8" title="1"> {
+                page, err = strconv.Atoi(r.URL.Query().Get("page"))
+                if err != nil </span><span class="cov0" title="0">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                        return
+                }</span>
+        }
+
+        <span class="cov8" title="1">var sorted string
+        if r.URL.Query().Get("sorted") == "" </span><span class="cov8" title="1">{
+                sorted = "datetime"
+        }</span> else<span class="cov8" title="1"> {
+                sorted = r.URL.Query().Get("sorted")
+                if sorted != "amount" &amp;&amp; sorted != "datetime" </span><span class="cov8" title="1">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        w.Write([]byte("{\"error\": \"sorted must be amount or datetime\"}"))
+                        return
+                }</span>
+        }
+
+        <span class="cov8" title="1">var order string
+        if r.URL.Query().Get("order") == "" </span><span class="cov8" title="1">{
+                order = "ASC"
+        }</span> else<span class="cov8" title="1"> {
+                order = strings.ToUpper(r.URL.Query().Get("order"))
+                if order != "ASC" &amp;&amp; order != "DESC" </span><span class="cov8" title="1">{
+                        w.WriteHeader(http.StatusBadRequest)
+                        w.Write([]byte("{\"error\": \"order must be asc or desc\"}"))
+                        return
+                }</span>
+        }
+
+        <span class="cov8" title="1">historyPage, err := getHistory(id, page, sorted, order)
+        if err != nil </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf("{\"error\": \"%v\"}", err)))
+                return
+        }</span>
+
+        <span class="cov8" title="1">if len(historyPage) == 0 </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte("{\"error\": \"nothing found\"}"))
+                return
+        }</span> else<span class="cov8" title="1"> {
+                json.NewEncoder(w).Encode(historyPage)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "net/http"
+)
+
+func main() <span class="cov0" title="0">{
+        http.HandleFunc("/operation/", operationHandler)
+        http.HandleFunc("/transfer/", transferHandler)
+        http.HandleFunc("/balance/", balanceHandler)
+        http.HandleFunc("/history/", historyHandler)
+
+        http.ListenAndServe(":8080", nil)
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package main
+
+import "net/url"
+
+type Operation struct {
+        Id     int
+        Type   string
+        Amount float64
+}
+
+func (o *Operation) validate() url.Values <span class="cov8" title="1">{
+        var availableTypes map[string]bool = map[string]bool{"debit": true, "credit": true}
+        errs := url.Values{}
+
+        if o.Id &lt;= 0 </span><span class="cov8" title="1">{
+                errs.Add("id", "id must be positive integer more than zero")
+        }</span>
+
+        <span class="cov8" title="1">_, ok := availableTypes[o.Type]
+        if !ok </span><span class="cov8" title="1">{
+                errs.Add("type", "type must be debit or credit")
+        }</span>
+
+        <span class="cov8" title="1">if o.Amount &lt;= 0 </span><span class="cov8" title="1">{
+                errs.Add("amount", "amount must be positive integer more than zero")
+        }</span>
+
+        <span class="cov8" title="1">return errs</span>
+}
+
+type Transfer struct {
+        SenderId   int `json:"sender_id"`
+        RecieverId int `json:"reciever_id"`
+        Amount     float64
+}
+
+func (t *Transfer) validate() url.Values <span class="cov8" title="1">{
+        errs := url.Values{}
+
+        if t.SenderId &lt;= 0 </span><span class="cov8" title="1">{
+                errs.Add("sender_id", "sender_id must be positive integer more than zero")
+        }</span>
+
+        <span class="cov8" title="1">if t.RecieverId &lt;= 0 </span><span class="cov8" title="1">{
+                errs.Add("reciever_id", "reciever_id must be positive integer more than zero")
+        }</span>
+
+        <span class="cov8" title="1">if t.Amount &lt;= 0 </span><span class="cov8" title="1">{
+                errs.Add("amount", "amount must be positive integer more than zero")
+        }</span>
+
+        <span class="cov8" title="1">return errs</span>
+}
+
+type User struct {
+        Id      int
+        Balance float64
+}
+
+type History struct {
+        UserId   int     `json:"user_id"`
+        Type     string  `json:"type"`
+        Amount   float64 `json:"amount"`
+        Datetime string  `json:"datetime"`
+        Idx      int     `json:"idx"`
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package main
+
+import (
+        "database/sql"
+        "encoding/json"
+        "fmt"
+        "io/ioutil"
+        "net/http"
+        "strconv"
+        "strings"
+        "time"
+
+        "github.com/joho/godotenv"
+        _ "github.com/lib/pq"
+)
+
+func currencyConversion(curr string, v float64) (float64, error) <span class="cov8" title="1">{
+        url := "http://api.exchangeratesapi.io/v1/latest?access_key=15934be9b0a839cc7998faeb9e3babf9"
+        resp, err := http.Get(url)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">defer resp.Body.Close()
+        body, err := ioutil.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">currencies := map[string]interface{}{}
+        err = json.Unmarshal(body, &amp;currencies)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+        <span class="cov8" title="1">c, ok := currencies["rates"].(map[string]interface{})[curr].(float64)
+        if !ok </span><span class="cov8" title="1">{
+                return 0, fmt.Errorf("can't find such currency. please use another one")
+        }</span>
+
+        <span class="cov8" title="1">result := v / currencies["rates"].(map[string]interface{})["RUB"].(float64) * c
+
+        return result, nil</span>
+}
+
+func dbConnection() (*sql.DB, error) <span class="cov8" title="1">{
+        envs, err := godotenv.Read(".env")
+        if err != nil </span><span class="cov0" title="0">{
+                return new(sql.DB), err
+        }</span>
+        <span class="cov8" title="1">host := envs["DB_HOST"]
+        port, _ := strconv.Atoi(envs["DB_PORT"])
+        db_user := envs["DB_USER"]
+        password := envs["DB_PASS"]
+        dbname := envs["DB_NAME"]
+
+        psqlconn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, db_user, password, dbname)
+
+        db, err := sql.Open("postgres", psqlconn)
+        if err != nil </span><span class="cov0" title="0">{
+                return new(sql.DB), err
+        }</span>
+        <span class="cov8" title="1">return db, nil</span>
+}
+
+func getUser(id int) (User, error) <span class="cov8" title="1">{
+        db, err := dbConnection()
+        if err != nil </span><span class="cov0" title="0">{
+                return User{}, err
+        }</span>
+        <span class="cov8" title="1">defer db.Close()
+        var user User
+        query := `SELECT "id", "balance" FROM "users" WHERE "id" = $1`
+        rows := db.QueryRow(query, id)
+        err = rows.Scan(&amp;user.Id, &amp;user.Balance)
+        if err != nil </span><span class="cov8" title="1">{
+                return User{}, fmt.Errorf("no user with such id")
+        }</span>
+        <span class="cov8" title="1">return user, nil</span>
+}
+
+func createUser(id int, balance float64) (User, error) <span class="cov8" title="1">{
+        db, err := dbConnection()
+        if err != nil </span><span class="cov0" title="0">{
+                return User{}, err
+        }</span>
+        <span class="cov8" title="1">defer db.Close()
+        query := `INSERT INTO "users" ("id", "balance") VALUES ($1, $2)`
+        _, err = db.Exec(query, id, balance)
+        if err != nil </span><span class="cov0" title="0">{
+                return User{}, err
+        }</span>
+        <span class="cov8" title="1">return User{Id: id, Balance: balance}, nil</span>
+}
+
+func updateUserBalance(id int, balance float64) error <span class="cov8" title="1">{
+        db, err := dbConnection()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">defer db.Close()
+
+        query := `UPDATE "users" SET "balance"=$1 WHERE "id"=$2`
+        _, err = db.Exec(query, balance, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func updateHistory(id int, t string, amount float64) error <span class="cov8" title="1">{
+        db, err := dbConnection()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">defer db.Close()
+        dt := time.Now()
+        query := `INSERT INTO "history" ("user_id", "type", "amount", "datetime") VALUES ($1, $2, $3, $4)`
+        _, err = db.Exec(query, id, t, amount, dt.Format("01-02-2006 15:04:05"))
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func getHistory(id, page int, order_field, order string) ([]History, error) <span class="cov8" title="1">{
+        var historyPage []History
+        var history History
+
+        db, err := dbConnection()
+        if err != nil </span><span class="cov0" title="0">{
+                return []History{}, err
+        }</span>
+        <span class="cov8" title="1">defer db.Close()
+
+        limit := 10
+        offset := (page - 1) * 10
+        query := fmt.Sprintf(
+                "SELECT \"user_id\", \"type\", \"amount\", \"datetime\" FROM \"history\" WHERE \"user_id\" = %v ORDER BY \"%v\" %v LIMIT %v OFFSET %v",
+                id,
+                order_field,
+                order,
+                limit,
+                offset)
+        rows, err := db.Query(query)
+        if err != nil </span><span class="cov0" title="0">{
+                return []History{}, err
+        }</span>
+        <span class="cov8" title="1">for i := offset + 1; rows.Next(); i++ </span><span class="cov8" title="1">{
+                err := rows.Scan(&amp;history.UserId, &amp;history.Type, &amp;history.Amount, &amp;history.Datetime)
+                if err != nil </span><span class="cov0" title="0">{
+                        return []History{}, err
+                }</span>
+                <span class="cov8" title="1">history.Type = strings.TrimSpace(history.Type)
+                history.Idx = i
+                historyPage = append(historyPage, history)</span>
+        }
+
+        <span class="cov8" title="1">return historyPage, nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

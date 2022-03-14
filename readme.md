@@ -34,6 +34,7 @@ amount|float|Сумма операции.|Обязательный
 400 (при недостаточности средств для проведения операции) |{"error": "not enough money"}
 400 (при некорректном заполнении тела запроса)|{"error":{"amount":["amount must be positive integer more than zero"],"id":["id must be positive integer more than zero"],"type":["type must be debit or credit"]}}
 400 (при отсутствии тела запроса)|{"error": "provide correct id, type and amount in request body"}
+400 (при некорректном указании id пользователя|{"error": "no user with such id"}
 405 (при некорректном методе запроса)|{"error": "wrong request method"}
 
 ---
@@ -61,6 +62,8 @@ amount|float|Сумма операции.|Обязательный
 400 (при недостаточности средств для проведения операции) |{"error": "not enough money"}
 400 (при некорректном заполнении тела запроса)|{"error":{"amount":["amount must be positive integer more than zero"],"reciever_id":["reciever_id must be positive integer more than zero"],"sender_id":["sender_id must be positive integer more than zero"]}}
 400 (при отсутствии тела запроса)|{"error": "provide correct sender_id, reciever_id and amount in request body"}
+400 (при совпадении id отправителя и получателя{"error": "sender and receiver are the same"}
+400 (при некорректном указании id пользователя|{"error": "no user with such id"}
 405 (при некорректном методе запроса)|{"error": "wrong request method"}
 
 ---
@@ -90,6 +93,7 @@ AED, AFN, ALL, AMD, ANG, AOA, ARS, AUD, AWG, AZN, BAM, BBD, BDT, BGN, BHD, BIF, 
 200|{"id": 1, "currency": {Трехбуквенный код валюты}, "balance": {сумма денежных средств на счете получателя в запрашиваемой валюте}}
 400 (при отсутствии указания id в строке запроса)|{"error": "add user id to query string"}
 400 (при некорректном указании валюты)|{"error": "can't find such currency. please use another one"}
+400 (при некорректном указании id пользователя|{"error": "no user with such id"}
 405 (при некорректном методе запроса)|{"error": "wrong request method"}
 
 ---
@@ -118,7 +122,8 @@ order|string|Порядок сортировки (по умолчанию ASC)<b
 400 (при отсутствии указания id в строке запроса)|{"error": "add user id to query string"}
 400 (при некорректном указании порядка сортировки)|{"error": "order must be asc or desc"}
 400 (при некорректном указании поля сортировки)|{"error": "sorted must be amount or datetime"}
+400 (при некорректном указании id пользователя|{"error": "no user with such id"}
 404 (при отсутствии истории операций)|{"error": ""nothing found""}
 405 (при некорректном методе запроса)|{"error": "wrong request method"}
 
-//TODO описать дополнительные варианты ответов
+//TODO sql-скрипт создания необходимых таблиц
