@@ -3,10 +3,12 @@
 ## Инструкция по запуску:
 
 ~~~
-//TODO инструкция по запуску
-
-psql postgres
-\i ./db.sql
+1. git clone https://github.com/Sidio01/user-balance-service.git
+2. cd user-balance-service
+3. cp .env.example .env
+4. Заполнить переменные окружения в файле .env 
+5. docker-compose build
+6. docker-compose up
 ~~~
 Запросы следует отправлять на http://127.0.0.1:8080/
 

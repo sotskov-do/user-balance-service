@@ -1,0 +1,28 @@
+version: '3.7'
+
+services:
+  app:
+    build:
+      context: .
+    image: app:v1
+    ports:
+      - 8080:8080
+    # volumes:
+    #   - ./app:/app
+    env_file:
+      - .env
+    command: go run .
+    links:
+      - db
+    depends_on:
+      - db
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - 5432:5432
+    volumes:
+      - ./db.sql:/docker-entrypoint-initdb.d/db.sql

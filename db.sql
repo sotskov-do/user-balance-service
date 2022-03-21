@@ -1,7 +1,3 @@
-CREATE DATABASE user_balance;
-
-\c user_balance
-
 CREATE TABLE IF NOT EXISTS users
 (
     id integer PRIMARY KEY NOT NULL,
